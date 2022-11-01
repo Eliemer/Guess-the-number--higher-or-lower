@@ -11,5 +11,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic functionality of guessing game. Works, but very *mutable* and crude.
 - Added `CHANGELOG.md` and `README.md`
 
-### Changed
-- Instructions and feedback message were contradictory, so fixed that
+### Fixed
+- Instructions and feedback message were contradictory
