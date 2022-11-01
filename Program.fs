@@ -8,7 +8,7 @@ let WELCOME_MESSAGE =
 I'm gonna think of a number between 1 and 100 (inclusive).
 You will write the number you think it is.
 I will tell you if:
-\t- The number you guessed is HIGHER, LOWER, than my secret number
+\t- The number you guessed is TOO HIGH, TOO LOW, or exactly my secret number
 \t- If you guess it right, I'll send you CONGRATULATIONS!"
 
 
@@ -39,9 +39,9 @@ let main _ =
 
                 if numOfAttempts < MAX_ATTEMPTS then
                     if guess < secretNumber then
-                        printfn "HIGHER"
+                        printfn "TOO LOW"
                     else if guess > secretNumber then
-                        printfn "LOWER"
+                        printfn "TOO HIGH"
                     else if guess = secretNumber then
                         printfn "CONGRATULATIONS you win!"
 
