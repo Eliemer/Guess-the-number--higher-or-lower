@@ -1,2 +1,4 @@
+# Ionide
 bin/
 obj/
+.fake
