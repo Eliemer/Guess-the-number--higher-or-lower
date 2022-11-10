@@ -16,39 +16,62 @@ type GameState =
     | Success
     | Ongoing
 
-let rec round (secret: int) (state: GameState) (attempts: int) : GameState =
-    match state with
-    | Ongoing ->
-        printf "Write your guess:"
-        let guessStr = Console.ReadLine()
+let guessingLoop (secret: int) : GameState =
+    let rec loop attempts =
+        function
+        | Ongoing ->
+            printf "Write your guess:"
+            let guessStr = Console.ReadLine()
 
-        match Int32.TryParse guessStr with
-        | false, _ ->
-            printfn "Please submit a number"
-            round secret Ongoing attempts
+            match Int32.TryParse guessStr with
+            | false, _ ->
+                printfn "Please submit a number"
+                loop attempts Ongoing
 
-        | true, guess when guess > 0 && guess < 101 ->
-            if attempts < MAX_ATTEMPTS then
+            | true, guess when guess > 0 && guess < 101 ->
+                if attempts < MAX_ATTEMPTS then
 
-                if guess < secret then
-                    printfn "TOO LOW"
-                    round secret Ongoing (attempts + 1)
-                else if guess > secret then
-                    printfn "TOO HIGH"
-                    round secret Ongoing (attempts + 1)
-                else if guess = secret then
-                    round secret Success attempts
+                    if guess < secret then
+                        printfn "TOO LOW"
+                        loop (attempts + 1) Ongoing
+                    else if guess > secret then
+                        printfn "TOO HIGH"
+                        loop (attempts + 1) Ongoing
+                    else if guess = secret then
+                        loop attempts Success
+                    else
+                        Ongoing
+
                 else
-                    Failure
+                    loop attempts Failure
 
-            else
-                round secret Failure attempts
+            | true, _ ->
+                printfn "Please submite a number between 1 and 100"
+                loop attempts Ongoing
 
-        | true, _ ->
-            printfn "Please submite a number between 1 and 100"
-            round secret Ongoing attempts
+        | state -> state
 
-    | _ -> state
+    loop 0 Ongoing
+
+let newRoundLoop =
+
+    let rec loop res valid : bool =
+        if not valid then
+            printfn "\n\nWould you like to play another round? (1: yes, 0: no)"
+            let newRoundStr = Console.ReadLine()
+
+            match Int32.TryParse newRoundStr with
+            | false, _ ->
+                printfn "Not a valid response"
+                loop false false
+            | true, n when n = 0 || n = 1 -> loop (n % 2 = 1) true
+            | true, n ->
+                printfn "Submit a number that is either 0 or 1"
+                loop false false
+        else
+            res
+
+    loop false
 
 [<EntryPoint>]
 let main _ =
@@ -60,22 +83,11 @@ let main _ =
         Console.Clear()
         printfn "%s" WELCOME_MESSAGE
 
-        match round (rand.Next(1, 101)) Ongoing 0 with
+        match guessingLoop (rand.Next(1, 101)) with
         | Success -> printfn "CONGRATULATIONS you win!"
         | Failure -> printfn "Womp womp, you ran out of attempts"
         | Ongoing -> failwith "Incorrect game state: Ongoing!"
 
-        let mutable validNewRoundResponse = false
-
-        while not validNewRoundResponse do
-            printfn "\n\nWould you like to play another round? (1: yes, 0: no)"
-            let newRoundStr = Console.ReadLine()
-
-            match Int32.TryParse newRoundStr with
-            | false, _ -> printfn "Not a valid response"
-            | true, n when n = 0 || n = 1 ->
-                validNewRoundResponse <- true
-                newRound <- n % 2 = 1
-            | true, n -> printfn "Submit a number that is either 0 or 1"
+        newRound <- newRoundLoop false
 
     0
