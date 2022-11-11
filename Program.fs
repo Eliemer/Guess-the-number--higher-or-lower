@@ -73,21 +73,25 @@ let newRoundLoop =
 
     loop false
 
+let mainLoop (rand: System.Random) =
+    let rec loop newRound =
+        if newRound then
+            Console.Clear()
+            printfn "%s" WELCOME_MESSAGE
+
+            match guessingLoop (rand.Next(1, 101)) with
+            | Success -> printfn "CONGRATULATIONS you win!"
+            | Failure -> printfn "Womp womp, you ran out of attempts"
+            | Ongoing -> failwith "Incorrect game state: Ongoing!"
+
+            loop (newRoundLoop false)
+        else
+            printfn "Thank you for playing!"
+
+    loop true
+
 [<EntryPoint>]
 let main _ =
-
-    let mutable newRound = true
     let rand = Random()
-
-    while newRound do
-        Console.Clear()
-        printfn "%s" WELCOME_MESSAGE
-
-        match guessingLoop (rand.Next(1, 101)) with
-        | Success -> printfn "CONGRATULATIONS you win!"
-        | Failure -> printfn "Womp womp, you ran out of attempts"
-        | Ongoing -> failwith "Incorrect game state: Ongoing!"
-
-        newRound <- newRoundLoop false
-
+    mainLoop rand
     0
