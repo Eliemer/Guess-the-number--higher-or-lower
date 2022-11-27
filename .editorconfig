@@ -1,0 +1,3 @@
+[*.{fs,fsx}]
+fsharp_space_before_colon=true
+fsharp_multiline_block_brackets_on_same_column=true
