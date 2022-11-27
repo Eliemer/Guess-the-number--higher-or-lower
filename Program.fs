@@ -1,6 +1,7 @@
-﻿open System
+module Main.Elmish
 
-let MAX_ATTEMPTS = 5
+open System
+open Elmish
 
 [<Literal>]
 let WELCOME_MESSAGE =
@@ -11,87 +12,134 @@ I will tell you if:
 \t- The number you guessed is TOO HIGH, TOO LOW, or exactly my secret number
 \t- If you guess it right, I'll send you CONGRATULATIONS!"
 
+let rand = System.Random()
+
+type PositiveInt =
+    | PositiveInt of int
+
+    static member create x =
+        if x >= 0 then Some <| PositiveInt x else None
+
+    static member value(PositiveInt n) = n
+
+    static member tryParse(s : string) =
+        match Int32.TryParse s with
+        | true, n -> PositiveInt.create n
+        | false, _ -> None
+
+let tryParseRetry s =
+    if s = "1" then Ok true
+    else if s = "0" then Ok false
+    else Error "Not a valid response"
+
 type GameState =
-    | Failure
-    | Success
-    | Ongoing
+    | Welcome
+    | ReadingGuess
+    | Guessing
+    | ReadingRetry
+    | Winning
+    | Losing
+    | Goodbye
 
-let guessingLoop (secret: int) : GameState =
-    let rec loop attempts =
-        function
-        | Ongoing ->
-            printf "Write your guess:"
-            let guessStr = Console.ReadLine()
+type Model =
+    {
+        State : GameState
+        HiddenNumber : PositiveInt
+        GuessedNumber : PositiveInt option
+        MaxAttempts : PositiveInt
+        Attempts : int
+    }
 
-            match Int32.TryParse guessStr with
-            | false, _ ->
-                printfn "Please submit a number"
-                loop attempts Ongoing
+type Msg =
+    | ReadGuess
+    | Guess of PositiveInt option
+    | Retry of bool option
+    | Win
 
-            | true, guess when guess > 0 && guess < 101 ->
-                if attempts < MAX_ATTEMPTS then
+let init (maxAttempts : PositiveInt) =
+    {
+        State = Welcome
+        HiddenNumber = PositiveInt.create (rand.Next(0, 101)) |> Option.get
+        GuessedNumber = None
+        MaxAttempts = maxAttempts
+        Attempts = 0
+    }
 
-                    if guess < secret then
-                        printfn "TOO LOW"
-                        loop (attempts + 1) Ongoing
-                    else if guess > secret then
-                        printfn "TOO HIGH"
-                        loop (attempts + 1) Ongoing
-                    else if guess = secret then
-                        loop attempts Success
-                    else
-                        Ongoing
-
+let update msg model =
+    match msg with
+    | ReadGuess -> { model with State = ReadingGuess }
+    | Guess n ->
+        match n with
+        | None ->
+            printfn "Please submit a number"
+            { model with State = ReadingGuess }
+        | Some posN ->
+            if (PositiveInt.value posN) <= 100 then
+                if model.Attempts < PositiveInt.value model.MaxAttempts then
+                    { model with
+                        GuessedNumber = Some posN
+                        State = Guessing
+                        Attempts = model.Attempts + 1
+                    }
                 else
-                    loop attempts Failure
+                    { model with State = Losing }
+            else
+                printfn "Please submit a number between 1 and 100"
+                { model with State = ReadingGuess }
+    | Win -> { model with State = Winning }
+    | Retry b ->
+        match b with
+        | None ->
+            printfn "Would you like to play another round? (1: yes, 0: no)"
+            { model with State = ReadingRetry }
+        | Some retry ->
+            if retry then
+                init model.MaxAttempts
+            else
+                { model with State = Goodbye }
 
-            | true, _ ->
-                printfn "Please submite a number between 1 and 100"
-                loop attempts Ongoing
+let view model (dispatch : Dispatch<Msg>) =
+    match model.State with
+    | Welcome ->
+        Console.Clear()
+        Console.WriteLine WELCOME_MESSAGE
+        dispatch <| Guess None
+    | ReadingGuess ->
+        Console.WriteLine "Write your guess:"
+        Console.ReadLine() |> PositiveInt.tryParse |> Guess |> dispatch
+    | Guessing ->
+        match model.GuessedNumber with
+        | Some posN ->
+            if posN > model.HiddenNumber then
+                Console.WriteLine "TOO HIGH"
+                dispatch <| ReadGuess
+            else if posN < model.HiddenNumber then
+                Console.WriteLine "TOO LOW"
+                dispatch <| ReadGuess
+            else
+                dispatch Win
+        | None -> ()
+    | ReadingRetry ->
+        Console.ReadLine()
+        |> tryParseRetry
+        |> function
+            | Ok b -> dispatch <| Retry(Some b)
+            | Error s ->
+                printfn "%s" s
+                dispatch <| Retry None
+    | Winning ->
+        printfn "CONGRATULATIONS! YOU WIN!!"
+        dispatch (Retry None)
+    | Losing ->
+        printfn "Womp womp, you ran out of attempts"
+        dispatch (Retry None)
+    | Goodbye -> printfn "Goodbye!"
 
-        | state -> state
-
-    loop 0 Ongoing
-
-let newRoundLoop =
-
-    let rec loop res valid : bool =
-        if not valid then
-            printfn "\n\nWould you like to play another round? (1: yes, 0: no)"
-            let newRoundStr = Console.ReadLine()
-
-            match Int32.TryParse newRoundStr with
-            | false, _ ->
-                printfn "Not a valid response"
-                loop false false
-            | true, n when n = 0 || n = 1 -> loop (n % 2 = 1) true
-            | true, n ->
-                printfn "Submit a number that is either 0 or 1"
-                loop false false
-        else
-            res
-
-    loop false
-
-let mainLoop (rand: System.Random) =
-    let rec loop newRound =
-        if newRound then
-            Console.Clear()
-            printfn "%s" WELCOME_MESSAGE
-
-            match guessingLoop (rand.Next(1, 101)) with
-            | Success -> printfn "CONGRATULATIONS you win!"
-            | Failure -> printfn "Womp womp, you ran out of attempts"
-            | Ongoing -> failwith "Incorrect game state: Ongoing!"
-
-            loop (newRoundLoop false)
-        else
-            printfn "Thank you for playing!"
-
-    loop true
+let MaxAttempts = PositiveInt.create 5 |> Option.get
 
 [<EntryPoint>]
-let main _ =
-    let rand = Random()
-    mainLoop rand
+let main args =
+
+    Program.mkSimple init update view |> Program.runWith (MaxAttempts)
+
     0
